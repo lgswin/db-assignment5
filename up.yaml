@@ -48,7 +48,42 @@
             geolocation_lat DECIMAL(10,8),
             geolocation_lng DECIMAL(11,8),
             geolocation_city VARCHAR(128),
-            geolocation_state CHAR(2)
+            geolocation_state VARCHAR(32)
+          );
+
+          CREATE TABLE products (
+            product_id VARCHAR(128) PRIMARY KEY,
+            product_category_name VARCHAR(128),
+            product_name_length INT NULL,
+            product_description_length INT NULL,
+            product_photos_qty INT NULL,
+            product_weight_g INT NULL,
+            product_length_cm INT NULL,
+            product_height_cm INT NULL,
+            product_width_cm INT NULL
+          );
+
+          CREATE TABLE sellers (
+            seller_id VARCHAR(128) PRIMARY KEY,
+            seller_zip_code_prefix VARCHAR(8),
+            seller_city VARCHAR(128),
+            seller_state VARCHAR(32)
+          );
+
+          CREATE TABLE product_category_name_translation (
+            product_category_name VARCHAR(128) PRIMARY KEY,
+            product_category_name_english VARCHAR(128)
+          );
+
+          CREATE TABLE orders (
+            order_id VARCHAR(128) PRIMARY KEY,
+            customer_id VARCHAR(128),
+            order_status VARCHAR(32),
+            order_purchase_timestamp DATETIME,
+            order_approved_at DATETIME NULL,
+            order_delivered_carrier_date DATETIME NULL,
+            order_delivered_customer_date DATETIME NULL,
+            order_estimated_delivery_date DATETIME NULL
           );
 
           CREATE TABLE order_items (
@@ -56,7 +91,7 @@
             order_item_id INT,
             product_id VARCHAR(128),
             seller_id VARCHAR(128),
-            shipping_limit_date DATETIME,
+            shipping_limit_date DATETIME NULL,
             price DECIMAL(10,2),
             freight_value DECIMAL(10,2),
             PRIMARY KEY (order_id, order_item_id)
@@ -66,55 +101,19 @@
             order_id VARCHAR(128),
             payment_sequential INT,
             payment_type VARCHAR(32),
-            payment_installments INT,
+            payment_installments INT NULL,
             payment_value DECIMAL(10,2),
             PRIMARY KEY (order_id, payment_sequential)
           );
 
           CREATE TABLE order_reviews (
-            review_id VARCHAR(128) PRIMARY KEY,
+            review_id VARCHAR(128),
             order_id VARCHAR(128),
-            review_score INT,
-            review_comment_title TEXT,
-            review_comment_message TEXT,
-            review_creation_date DATETIME,
-            review_answer_timestamp DATETIME
-          );
-
-          CREATE TABLE orders (
-            order_id VARCHAR(128) PRIMARY KEY,
-            customer_id VARCHAR(128),
-            order_status VARCHAR(32),
-            order_purchase_timestamp DATETIME,
-            order_approved_at DATETIME,
-            order_delivered_carrier_date DATETIME,
-            order_delivered_customer_date DATETIME,
-            order_estimated_delivery_date DATETIME,
-            FOREIGN KEY (customer_id) REFERENCES customers(customer_id)
-          );
-
-          CREATE TABLE products (
-            product_id VARCHAR(128) PRIMARY KEY,
-            product_category_name VARCHAR(128),
-            product_name_length INT,
-            product_description_length INT,
-            product_photos_qty INT,
-            product_weight_g INT,
-            product_length_cm INT,
-            product_height_cm INT,
-            product_width_cm INT
-          );
-
-          CREATE TABLE sellers (
-            seller_id VARCHAR(128) PRIMARY KEY,
-            seller_zip_code_prefix VARCHAR(8),
-            seller_city VARCHAR(128),
-            seller_state CHAR(2)
-          );
-
-          CREATE TABLE product_category_name_translation (
-            product_category_name VARCHAR(128) PRIMARY KEY,
-            product_category_name_english VARCHAR(128)
+            review_score INT NULL,
+            review_comment_title TEXT NULL,
+            review_comment_message TEXT NULL,
+            review_creation_date DATETIME NULL,
+            review_answer_timestamp DATETIME NULL
           );
 
     - name: Load CSV data
@@ -124,15 +123,123 @@
         login_password: root
         db: olist_db
         query: |
-          LOAD DATA INFILE '/var/lib/mysql-files/olist_customers_dataset.csv' INTO TABLE customers FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n' IGNORE 1 LINES;
-          LOAD DATA INFILE '/var/lib/mysql-files/olist_geolocation_dataset.csv' INTO TABLE geolocation FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n' IGNORE 1 LINES;
-          LOAD DATA INFILE '/var/lib/mysql-files/olist_order_items_dataset.csv' INTO TABLE order_items FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n' IGNORE 1 LINES;
-          LOAD DATA INFILE '/var/lib/mysql-files/olist_order_payments_dataset.csv' INTO TABLE order_payments FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n' IGNORE 1 LINES;
-          LOAD DATA INFILE '/var/lib/mysql-files/olist_order_reviews_dataset.csv' INTO TABLE order_reviews FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n' IGNORE 1 LINES;
-          LOAD DATA INFILE '/var/lib/mysql-files/olist_orders_dataset.csv' INTO TABLE orders FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n' IGNORE 1 LINES;
-          LOAD DATA INFILE '/var/lib/mysql-files/olist_products_dataset.csv' INTO TABLE products FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n' IGNORE 1 LINES;
-          LOAD DATA INFILE '/var/lib/mysql-files/olist_sellers_dataset.csv' INTO TABLE sellers FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n' IGNORE 1 LINES;
-          LOAD DATA INFILE '/var/lib/mysql-files/product_category_name_translation.csv' INTO TABLE product_category_name_translation FIELDS TERMINATED BY ',' LINES TERMINATED BY '\n' IGNORE 1 LINES;
+          LOAD DATA INFILE '/var/lib/mysql-files/olist_customers_dataset.csv' 
+          INTO TABLE customers 
+          FIELDS TERMINATED BY ',' 
+          ENCLOSED BY '"' 
+          LINES TERMINATED BY '\n' 
+          IGNORE 1 LINES;
+
+          LOAD DATA INFILE '/var/lib/mysql-files/olist_geolocation_dataset.csv' 
+          INTO TABLE geolocation 
+          FIELDS TERMINATED BY ',' 
+          ENCLOSED BY '"' 
+          ESCAPED BY '\\'
+          LINES TERMINATED BY '\n' 
+          IGNORE 1 LINES;
+
+          LOAD DATA INFILE '/var/lib/mysql-files/olist_products_dataset.csv' 
+          INTO TABLE products 
+          FIELDS TERMINATED BY ',' 
+          ENCLOSED BY '"' 
+          LINES TERMINATED BY '\n' 
+          IGNORE 1 LINES
+          (@product_id, @product_category_name, @product_name_length, @product_description_length, 
+           @product_photos_qty, @product_weight_g, @product_length_cm, @product_height_cm, @product_width_cm)
+          SET 
+              product_id = @product_id,
+              product_category_name = @product_category_name,
+              product_name_length = NULLIF(@product_name_length, ''),
+              product_description_length = NULLIF(@product_description_length, ''),
+              product_photos_qty = NULLIF(@product_photos_qty, ''),
+              product_weight_g = NULLIF(@product_weight_g, ''),
+              product_length_cm = NULLIF(@product_length_cm, ''),
+              product_height_cm = NULLIF(@product_height_cm, ''),
+              product_width_cm = NULLIF(@product_width_cm, '');
+
+          LOAD DATA INFILE '/var/lib/mysql-files/olist_sellers_dataset.csv' 
+          INTO TABLE sellers 
+          FIELDS TERMINATED BY ',' 
+          ENCLOSED BY '"' 
+          LINES TERMINATED BY '\n' 
+          IGNORE 1 LINES;
+
+          LOAD DATA INFILE '/var/lib/mysql-files/product_category_name_translation.csv' 
+          INTO TABLE product_category_name_translation 
+          FIELDS TERMINATED BY ',' 
+          ENCLOSED BY '"' 
+          LINES TERMINATED BY '\n' 
+          IGNORE 1 LINES;
+
+          LOAD DATA INFILE '/var/lib/mysql-files/olist_orders_dataset.csv' 
+          INTO TABLE orders 
+          FIELDS TERMINATED BY ',' 
+          ENCLOSED BY '"' 
+          ESCAPED BY '\\'
+          LINES TERMINATED BY '\n' 
+          IGNORE 1 LINES
+          (@order_id, @customer_id, @order_status, @order_purchase_timestamp, 
+           @order_approved_at, @order_delivered_carrier_date, @order_delivered_customer_date, 
+           @order_estimated_delivery_date)
+          SET 
+              order_id = @order_id,
+              customer_id = @customer_id,
+              order_status = @order_status,
+              order_purchase_timestamp = @order_purchase_timestamp,
+              order_approved_at = NULLIF(@order_approved_at, ''),
+              order_delivered_carrier_date = NULLIF(@order_delivered_carrier_date, ''),
+              order_delivered_customer_date = NULLIF(@order_delivered_customer_date, ''),
+              order_estimated_delivery_date = NULLIF(@order_estimated_delivery_date, '');
+
+          LOAD DATA INFILE '/var/lib/mysql-files/olist_order_items_dataset.csv' 
+          INTO TABLE order_items 
+          FIELDS TERMINATED BY ',' 
+          ENCLOSED BY '"' 
+          ESCAPED BY '\\'
+          LINES TERMINATED BY '\n' 
+          IGNORE 1 LINES
+          (@order_id, @order_item_id, @product_id, @seller_id, @shipping_limit_date, @price, @freight_value)
+          SET 
+              order_id = @order_id,
+              order_item_id = @order_item_id,
+              product_id = @product_id,
+              seller_id = @seller_id,
+              shipping_limit_date = NULLIF(@shipping_limit_date, ''),
+              price = @price,
+              freight_value = @freight_value;
+
+          LOAD DATA INFILE '/var/lib/mysql-files/olist_order_payments_dataset.csv' 
+          INTO TABLE order_payments 
+          FIELDS TERMINATED BY ',' 
+          ENCLOSED BY '"' 
+          ESCAPED BY '\\'
+          LINES TERMINATED BY '\n' 
+          IGNORE 1 LINES
+          (@order_id, @payment_sequential, @payment_type, @payment_installments, @payment_value)
+          SET 
+              order_id = @order_id,
+              payment_sequential = @payment_sequential,
+              payment_type = @payment_type,
+              payment_installments = NULLIF(@payment_installments, ''),
+              payment_value = @payment_value;
+
+          LOAD DATA INFILE '/var/lib/mysql-files/olist_order_reviews_dataset.csv' 
+          INTO TABLE order_reviews 
+          FIELDS TERMINATED BY ',' 
+          ENCLOSED BY '"' 
+          ESCAPED BY '\\'
+          LINES TERMINATED BY '\n' 
+          IGNORE 1 LINES
+          (@review_id, @order_id, @review_score, @review_comment_title, @review_comment_message, 
+           @review_creation_date, @review_answer_timestamp)
+          SET 
+              review_id = @review_id,
+              order_id = @order_id,
+              review_score = NULLIF(@review_score, ''),
+              review_comment_title = NULLIF(@review_comment_title, ''),
+              review_comment_message = NULLIF(@review_comment_message, ''),
+              review_creation_date = NULLIF(@review_creation_date, ''),
+              review_answer_timestamp = NULLIF(@review_answer_timestamp, '');
 
     - name: Install required packages
       apt:
