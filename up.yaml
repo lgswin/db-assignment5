@@ -107,13 +107,13 @@
           );
 
           CREATE TABLE order_reviews (
-            review_id VARCHAR(128),
+            review_id VARCHAR(128) PRIMARY KEY,
             order_id VARCHAR(128),
-            review_score INT NULL,
-            review_comment_title TEXT NULL,
-            review_comment_message TEXT NULL,
-            review_creation_date DATETIME NULL,
-            review_answer_timestamp DATETIME NULL
+            review_score INT,
+            review_comment_title TEXT,
+            review_comment_message TEXT,
+            review_creation_date DATETIME,
+            review_answer_timestamp DATETIME
           );
 
     - name: Load CSV data
@@ -227,19 +227,8 @@
           INTO TABLE order_reviews 
           FIELDS TERMINATED BY ',' 
           ENCLOSED BY '"' 
-          ESCAPED BY '\\'
           LINES TERMINATED BY '\n' 
-          IGNORE 1 LINES
-          (@review_id, @order_id, @review_score, @review_comment_title, @review_comment_message, 
-           @review_creation_date, @review_answer_timestamp)
-          SET 
-              review_id = @review_id,
-              order_id = @order_id,
-              review_score = NULLIF(@review_score, ''),
-              review_comment_title = NULLIF(@review_comment_title, ''),
-              review_comment_message = NULLIF(@review_comment_message, ''),
-              review_creation_date = NULLIF(@review_creation_date, ''),
-              review_answer_timestamp = NULLIF(@review_answer_timestamp, '');
+          IGNORE 1 LINES;
 
     - name: Install required packages
       apt:
